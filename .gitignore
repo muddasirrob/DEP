@@ -1,162 +1,141 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+import argparse
 
-# C extensions
-*.so
+# Game Constants
+RED_POINTS = 2
+BLUE_POINTS = 3
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+class NimGame:
+    def __init__(self, red_marbles, blue_marbles, version, first_player, search_depth):
+        self.red_marbles = red_marbles
+        self.blue_marbles = blue_marbles
+        self.version = version
+        self.current_player = first_player
+        self.search_depth = search_depth
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+    def is_game_over(self):
+        return self.red_marbles == 0 or self.blue_marbles == 0
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+    def get_winner(self):
+        if self.version == "standard":
+            return "computer" if self.current_player == "human" else "human"
+        else:
+            return "human" if self.current_player == "human" else "computer"
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
+    def get_score(self):
+        return self.red_marbles * RED_POINTS + self.blue_marbles * BLUE_POINTS
 
-# Translations
-*.mo
-*.pot
+    def make_move(self, pile, amount):
+        if pile == "red":
+            self.red_marbles -= amount
+        elif pile == "blue":
+            self.blue_marbles -= amount
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+    def undo_move(self, pile, amount):
+        if pile == "red":
+            self.red_marbles += amount
+        elif pile == "blue":
+            self.blue_marbles += amount
 
-# Flask stuff:
-instance/
-.webassets-cache
+    def minmax(self, depth, alpha, beta, maximizing_player):
+        if self.is_game_over() or depth == 0:
+            return self.evaluate()
 
-# Scrapy stuff:
-.scrapy
+        if maximizing_player:
+            max_eval = float('-inf')
+            for move in self.get_possible_moves():
+                self.make_move(move[0], move[1])
+                eval = self.minmax(depth - 1, alpha, beta, False)
+                self.undo_move(move[0], move[1])
+                max_eval = max(max_eval, eval)
+                alpha = max(alpha, eval)
+                if beta <= alpha:
+                    break
+            return max_eval
+        else:
+            min_eval = float('inf')
+            for move in self.get_possible_moves():
+                self.make_move(move[0], move[1])
+                eval = self.minmax(depth - 1, alpha, beta, True)
+                self.undo_move(move[0], move[1])
+                min_eval = min(min_eval, eval)
+                beta = min(beta, eval)
+                if beta <= alpha:
+                    break
+            return min_eval
 
-# Sphinx documentation
-docs/_build/
+    def evaluate(self):
+        if self.is_game_over():
+            if self.version == "standard":
+                if self.get_winner() == "human":
+                    return float('-inf')
+                else:
+                    return float('inf')
+            else:
+                if self.get_winner() == "human":
+                    return float('inf')
+                else:
+                    return float('-inf')
+        return self.get_score()
 
-# PyBuilder
-.pybuilder/
-target/
+    def get_possible_moves(self):
+        moves = []
+        for i in range(1, self.red_marbles + 1):
+            moves.append(("red", i))
+        for i in range(1, self.blue_marbles + 1):
+            moves.append(("blue", i))
+        return moves
 
-# Jupyter Notebook
-.ipynb_checkpoints
+    def computer_move(self):
+        best_move = None
+        best_value = float('-inf')
+        for move in self.get_possible_moves():
+            self.make_move(move[0], move[1])
+            move_value = self.minmax(self.search_depth - 1, float('-inf'), float('inf'), False)
+            self.undo_move(move[0], move[1])
+            if move_value > best_value:
+                best_value = move_value
+                best_move = move
+        if best_move is not None:
+            self.make_move(best_move[0], best_move[1])
+        return best_move
 
-# IPython
-profile_default/
-ipython_config.py
+    def human_move(self, pile, amount):
+        self.make_move(pile, amount)
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+def main():
+    parser = argparse.ArgumentParser(description="Red-Blue Nim Game")
+    parser.add_argument("--red", type=int, help="Number of red marbles", default=10)
+    parser.add_argument("--blue", type=int, help="Number of blue marbles", default=10)
+    parser.add_argument("--version", type=str, choices=["standard", "misere"], help="Game version", default="misere")
+    parser.add_argument("--first_player", type=str, choices=["human", "computer"], help="First player", default="human")
+    parser.add_argument("--search_depth", type=int, help="AI search depth", default=3)
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+    args = parser.parse_args()
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
+    game = NimGame(args.red, args.blue, args.version, args.first_player, args.search_depth)
 
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
-.pdm.toml
-.pdm-python
-.pdm-build/
+    while not game.is_game_over():
+        if game.current_player == "human":
+            print(f"Red marbles: {game.red_marbles}, Blue marbles: {game.blue_marbles}")
+            pile = input("Enter pile (red/blue): ").strip().lower()
+            amount = int(input("Enter amount: ").strip())
+            if (pile, amount) not in game.get_possible_moves():
+                print("Invalid move. Try again.")
+                continue
+            game.human_move(pile, amount)
+            game.current_player = "computer"
+        else:
+            move = game.computer_move()
+            if move is None:
+                print("No valid moves available. Game Over!")
+                break
+            print(f"Computer moved {move[1]} from {move[0]} pile.")
+            game.current_player = "human"
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+    print("Game over!")
+    print(f"Winner: {game.get_winner()}")
+    print(f"Final Score: {game.get_score()}")
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
+if __name__ == "__main__":
+    main()
 
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
